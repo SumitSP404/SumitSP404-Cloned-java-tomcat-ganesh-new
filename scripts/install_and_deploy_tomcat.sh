@@ -10,10 +10,9 @@ cd /home/ec2-user
 wget https://aws-codedeploy-us-west-2.s3.amazonaws.com/latest/install
 chmod +x ./install
 sudo ./install auto
-
 sudo systemctl start codedeploy-agent
 sudo systemctl enable codedeploy-agent
-sudo systemctl status codedeploy-agent
+sudo systemctl status codedeploy-agent || true
 
 echo "======== Checking and Installing Java 11 ========="
 if ! java -version &>/dev/null; then
@@ -52,10 +51,7 @@ sudo tee /opt/tomcat/conf/tomcat-users.xml > /dev/null <<EOF
   <role rolename="manager-script"/>
   <role rolename="manager-jmx"/>
   <role rolename="manager-status"/>
-  <user username="admin" password="admin" roles="manager-gui,manager-script,manager-jmx,manager-status,admin"/>
-
-  <!-- Application-level role for BASIC auth (matches web.xml) -->
-  <role rolename="admin"/>
+  <user username="admin" password="admin" roles="manager-gui,manager-script,manager-jmx,manager-status"/>
 </tomcat-users>
 EOF
 
@@ -70,17 +66,12 @@ After=network.target
 Type=forking
 User=ec2-user
 Group=ec2-user
-
 Environment=JAVA_HOME=/usr/lib/jvm/java-11-amazon-corretto
-Environment=CATALINA_PID=/opt/tomcat/temp/tomcat.pid
 Environment=CATALINA_HOME=/opt/tomcat
 Environment=CATALINA_BASE=/opt/tomcat
-
 ExecStart=/opt/tomcat/bin/startup.sh
 ExecStop=/opt/tomcat/bin/shutdown.sh
-
-Restart=always
-RestartSec=10
+Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target
@@ -98,7 +89,6 @@ SOURCE_WAR="/home/ec2-user/${WAR_NAME}"
 TARGET_WAR="/opt/tomcat/webapps/${WAR_NAME}"
 APP_DIR="/opt/tomcat/webapps/Ecomm"
 
-# Clean up previous deployment
 sudo rm -rf "$APP_DIR"
 sudo rm -f "$TARGET_WAR"
 
@@ -115,4 +105,6 @@ sudo systemctl daemon-reload
 sudo systemctl enable tomcat
 sudo systemctl restart tomcat
 
-echo "======== Deployment Complete ========="
+echo "======== ✅ Deployment Complete ========="
+echo "🌐 Access Tomcat at: http://<EC2_PUBLIC_IP>:8080"
+echo "🔐 Manager App credentials → username: admin / password: admin"
