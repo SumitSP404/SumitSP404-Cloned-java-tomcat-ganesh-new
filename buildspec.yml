@@ -3,7 +3,7 @@ version: 0.2
 env:
   variables:
     WAR_NAME: Ecomm.war
-    S3_BUCKET: tomcat-bucket-new   # 🔁 Replace with your actual S3 bucket name
+    S3_BUCKET: tomcat-bucket-new   # 🔁 Your S3 bucket name
 
 phases:
   install:
@@ -27,9 +27,9 @@ phases:
 
   post_build:
     commands:
-      - echo Uploading WAR file to S3 root...
-      - aws s3 cp target/${WAR_NAME} s3://${S3_BUCKET}/${WAR_NAME}
-      - echo ✅ WAR uploaded successfully to s3://${S3_BUCKET}/${WAR_NAME}
+      - echo Uploading WAR file to S3 under target/ folder...
+      - aws s3 cp target/${WAR_NAME} s3://${S3_BUCKET}/target/${WAR_NAME}
+      - echo ✅ WAR uploaded to s3://${S3_BUCKET}/target/${WAR_NAME}
 
 artifacts:
   files:
