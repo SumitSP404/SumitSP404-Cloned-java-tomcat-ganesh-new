@@ -19,35 +19,34 @@ if ! java -version &>/dev/null; then
   echo "Installing Java 11..."
   sudo yum install -y java-11-amazon-corretto
 else
-  echo "Java is already installed."
+  echo "✅ Java is already installed."
 fi
 
 echo "======== Installing Tomcat ========="
 TOMCAT_VERSION=9.0.86
-sudo mkdir -p /opt
-cd /opt/
+TOMCAT_DIR="/opt/tomcat"
+TOMCAT_USER="ec2-user"
 
-if [ ! -d "/opt/tomcat" ]; then
-  echo "Downloading and installing Tomcat..."
-  sudo curl -O https://archive.apache.org/dist/tomcat/tomcat-9/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz
-  sudo tar -xzf apache-tomcat-${TOMCAT_VERSION}.tar.gz
-  sudo mv apache-tomcat-${TOMCAT_VERSION} tomcat
-  sudo chown -R ec2-user:ec2-user /opt/tomcat
-  sudo chmod +x /opt/tomcat/bin/*.sh
-  #sudo chown -R ec2-user:ec2-user /opt/tomcat
+if [ ! -d "$TOMCAT_DIR" ]; then
+  echo "➡️ Downloading Tomcat $TOMCAT_VERSION..."
+  cd /tmp
+  curl -O https://archive.apache.org/dist/tomcat/tomcat-9/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz
+  sudo mkdir -p /opt/
+  sudo tar -xzf apache-tomcat-${TOMCAT_VERSION}.tar.gz -C /opt/
+  sudo mv /opt/apache-tomcat-${TOMCAT_VERSION} $TOMCAT_DIR
+  sudo chown -R $TOMCAT_USER:$TOMCAT_USER $TOMCAT_DIR
+  sudo chmod +x $TOMCAT_DIR/bin/*.sh
 else
-  echo "Tomcat is already installed. Skipping installation."
+  echo "✅ Tomcat already installed. Skipping."
 fi
 
-echo "======== Creating tomcat-users.xml with BASIC auth and admin users ========="
-sudo tee /opt/tomcat/conf/tomcat-users.xml > /dev/null <<EOF
+echo "======== Configuring tomcat-users.xml ========="
+sudo tee $TOMCAT_DIR/conf/tomcat-users.xml > /dev/null <<EOF
 <?xml version='1.0' encoding='utf-8'?>
 <tomcat-users xmlns="http://tomcat.apache.org/xml"
               xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
               xsi:schemaLocation="http://tomcat.apache.org/xml tomcat-users.xsd"
               version="1.0">
-
-  <!-- Admin user for Tomcat Manager -->
   <role rolename="manager-gui"/>
   <role rolename="manager-script"/>
   <role rolename="manager-jmx"/>
@@ -65,47 +64,48 @@ After=network.target
 
 [Service]
 Type=forking
-User=ec2-user
-Group=ec2-user
+User=$TOMCAT_USER
+Group=$TOMCAT_USER
 Environment=JAVA_HOME=/usr/lib/jvm/java-11-amazon-corretto
-Environment=CATALINA_HOME=/opt/tomcat
-Environment=CATALINA_BASE=/opt/tomcat
-ExecStart=/opt/tomcat/bin/startup.sh
-ExecStop=/opt/tomcat/bin/shutdown.sh
+Environment=CATALINA_HOME=$TOMCAT_DIR
+Environment=CATALINA_BASE=$TOMCAT_DIR
+ExecStart=$TOMCAT_DIR/bin/startup.sh
+ExecStop=$TOMCAT_DIR/bin/shutdown.sh
 Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target
 EOF
 else
-  echo "Tomcat systemd service already exists. Skipping creation."
+  echo "✅ tomcat.service already exists. Skipping creation."
 fi
 
-echo "======== Stopping Tomcat to deploy WAR file ========="
+echo "======== Stopping Tomcat if running ========="
 sudo systemctl stop tomcat || true
 
 echo "======== Deploying WAR file to Tomcat ========="
 WAR_NAME="Ecomm.war"
 SOURCE_WAR="/home/ec2-user/${WAR_NAME}"
-TARGET_WAR="/opt/tomcat/webapps/${WAR_NAME}"
-APP_DIR="/opt/tomcat/webapps/Ecomm"
+TARGET_WAR="$TOMCAT_DIR/webapps/${WAR_NAME}"
+APP_DIR="$TOMCAT_DIR/webapps/Ecomm"
 
 sudo rm -rf "$APP_DIR"
 sudo rm -f "$TARGET_WAR"
 
 if [ -f "$SOURCE_WAR" ]; then
   sudo cp "$SOURCE_WAR" "$TARGET_WAR"
+  sudo chown $TOMCAT_USER:$TOMCAT_USER "$TARGET_WAR"
   echo "✅ WAR file copied to Tomcat webapps."
 else
   echo "❌ WAR file not found at $SOURCE_WAR"
   exit 1
 fi
 
-echo "======== Starting and Enabling Tomcat service ========="
+echo "======== Enabling and Starting Tomcat service ========="
 sudo systemctl daemon-reload
 sudo systemctl enable tomcat
 sudo systemctl restart tomcat
 
 echo "======== ✅ Deployment Complete ========="
 echo "🌐 Access Tomcat at: http://<EC2_PUBLIC_IP>:8080"
-echo "🔐 Manager App credentials → username: admin / password: admin"
+echo "🔐 Login to Tomcat Manager: admin / admin"
