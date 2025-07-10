@@ -33,7 +33,7 @@ if [ ! -d "/opt/tomcat" ]; then
   sudo tar -xzf apache-tomcat-${TOMCAT_VERSION}.tar.gz
   sudo mv apache-tomcat-${TOMCAT_VERSION} tomcat
   sudo chmod +x /opt/tomcat/bin/*.sh
-  sudo chown -R ec2-user:ec2-user /opt/tomcat
+  #sudo chown -R ec2-user:ec2-user /opt/tomcat
 else
   echo "Tomcat is already installed. Skipping installation."
 fi
