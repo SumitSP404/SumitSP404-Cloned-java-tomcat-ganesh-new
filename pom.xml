@@ -10,12 +10,12 @@
 	<distributionManagement>
     <repository>
         <id>central</id>
-        <name>ip-172-31-10-127.ap-northeast-3.compute.internal-releases</name>
+        <name>ip-172-31-10-127.us-west-2.compute.internal-releases</name>
         <url>http://3.110.223.194:8081/artifactory/etoe</url>
     </repository>
     <snapshotRepository>
         <id>snapshots</id>
-        <name>ip-172-31-10-127.ap-northeast-3.compute.internal-snapshots</name>
+        <name>ip-172-31-10-127.us-east-2.compute.internal-snapshots</name>
         <url>http://13.201.184.143:8081/artifactory/etoe</url>
     </snapshotRepository>
 </distributionManagement>
@@ -35,7 +35,7 @@
 				<artifactId>tomcat7-maven-plugin</artifactId> 
 				<version>2.2</version> 
 				<configuration> 
-					 <url>http://15.152.42.208:8080/manager/text</url>
+					 <url>http://35.92.140.177:8080/manager/text</url>
 					<server>apache-tomcat</server> 
 					<username>admin</username>
 					<password>admin</password>
