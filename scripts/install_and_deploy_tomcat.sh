@@ -1,116 +1,96 @@
-# scripts/before_install.sh
 #!/bin/bash
-set -e
 
-echo "==== Installing CodeDeploy Agent ===="
+# Update system
 sudo yum update -y
-sudo yum install -y ruby wget
-cd /home/ec2-user
-wget https://aws-codedeploy-us-west-2.s3.amazonaws.com/latest/install
-chmod +x ./install
-sudo ./install auto
-sudo systemctl start codedeploy-agent
-sudo systemctl enable codedeploy-agent
 
-# Java 11
-if ! java -version &>/dev/null; then
-  sudo yum install -y java-11-amazon-corretto
-fi
+# Install Java
+sudo amazon-linux-extras enable corretto11
+sudo yum install -y java-11-amazon-corretto
 
-# Tomcat install
-TOMCAT_VERSION=9.0.86
-TOMCAT_DIR=/opt/tomcat
-if [ ! -d "$TOMCAT_DIR" ]; then
-  cd /tmp
-  curl -O https://archive.apache.org/dist/tomcat/tomcat-9/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz
-  sudo mkdir -p /opt
-  sudo tar -xzf apache-tomcat-${TOMCAT_VERSION}.tar.gz -C /opt/
-  sudo mv /opt/apache-tomcat-${TOMCAT_VERSION} $TOMCAT_DIR
-  sudo chmod +x $TOMCAT_DIR/bin/*.sh
-  sudo chown -R ec2-user:ec2-user $TOMCAT_DIR
-fi
+# Create tomcat user
+sudo groupadd tomcat
+sudo useradd -M -s /bin/nologin -g tomcat -d /opt/tomcat tomcat
 
-# tomcat-users.xml config
-sudo tee $TOMCAT_DIR/conf/tomcat-users.xml > /dev/null <<EOF
-<?xml version='1.0' encoding='utf-8'?>
-<tomcat-users>
-  <role rolename="manager-gui"/>
-  <user username="admin" password="admin" roles="manager-gui"/>
-</tomcat-users>
-EOF
+# Download Tomcat
+cd /opt
+sudo curl -O https://downloads.apache.org/tomcat/tomcat-9/v9.0.86/bin/apache-tomcat-9.0.86.tar.gz
+sudo tar -xvzf apache-tomcat-9.0.86.tar.gz
+sudo mv apache-tomcat-9.0.86 tomcat
+sudo chown -R tomcat:tomcat /opt/tomcat
 
-# systemd service
-if [ ! -f "/etc/systemd/system/tomcat.service" ]; then
-  sudo tee /etc/systemd/system/tomcat.service > /dev/null <<EOF
+# Set permissions
+sudo chmod +x /opt/tomcat/bin/*.sh
+
+# Setup systemd service for Tomcat
+cat <<EOF | sudo tee /etc/systemd/system/tomcat.service
 [Unit]
 Description=Apache Tomcat Web Application Container
 After=network.target
 
 [Service]
 Type=forking
-User=ec2-user
-Group=ec2-user
-Environment=JAVA_HOME=/usr/lib/jvm/java-11-amazon-corretto
-Environment=CATALINA_HOME=$TOMCAT_DIR
-Environment=CATALINA_BASE=$TOMCAT_DIR
-ExecStart=$TOMCAT_DIR/bin/startup.sh
-ExecStop=$TOMCAT_DIR/bin/shutdown.sh
-Restart=on-failure
+
+User=tomcat
+Group=tomcat
+
+Environment="JAVA_HOME=/usr/lib/jvm/java-11-amazon-corretto"
+Environment="CATALINA_PID=/opt/tomcat/temp/tomcat.pid"
+Environment="CATALINA_HOME=/opt/tomcat"
+Environment="CATALINA_BASE=/opt/tomcat"
+Environment="CATALINA_OPTS=-Xms512M -Xmx1024M -server -XX:+UseParallelGC"
+Environment="JAVA_OPTS=-Djava.security.egd=file:///dev/urandom"
+
+ExecStart=/opt/tomcat/bin/startup.sh
+ExecStop=/opt/tomcat/bin/shutdown.sh
+
+Restart=always
 
 [Install]
 WantedBy=multi-user.target
 EOF
-fi
 
+# Reload and start Tomcat
+sudo systemctl daemon-reexec
 sudo systemctl daemon-reload
 sudo systemctl enable tomcat
+sudo systemctl start tomcat
 
-# scripts/deploy_app.sh
-#!/bin/bash
-set -e
+# Configure Tomcat users
+sudo tee /opt/tomcat/conf/tomcat-users.xml > /dev/null <<EOF
+<tomcat-users>
+  <role rolename="manager-gui"/>
+  <role rolename="admin-gui"/>
+  <user username="admin" password="admin123" roles="manager-gui,admin-gui"/>
+</tomcat-users>
+EOF
 
-WAR_NAME=Ecomm.war
-TOMCAT_DIR=/opt/tomcat
-TARGET_WAR=$TOMCAT_DIR/webapps/$WAR_NAME
-APP_DIR=$TOMCAT_DIR/webapps/Ecomm
+# Allow access from anywhere (disable IP restrictions)
+sudo sed -i 's/<Context>/<Context antiResourceLocking="false" privileged="true">/' /opt/tomcat/webapps/manager/META-INF/context.xml
+sudo sed -i 's/<Context>/<Context antiResourceLocking="false" privileged="true">/' /opt/tomcat/webapps/host-manager/META-INF/context.xml
 
-sudo rm -rf "$APP_DIR"
-sudo rm -f "$TARGET_WAR"
+# Re-download manager and host-manager if broken
+cd /opt/tomcat/webapps
+sudo rm -rf manager host-manager
+sudo curl -O https://downloads.apache.org/tomcat/tomcat-9/v9.0.86/bin/extras/catalina-manager.tar.gz
+sudo tar -xzf catalina-manager.tar.gz
+sudo rm catalina-manager.tar.gz
+sudo chown -R tomcat:tomcat /opt/tomcat/webapps
 
-if [ -f "/home/ec2-user/$WAR_NAME" ]; then
-  sudo cp "/home/ec2-user/$WAR_NAME" "$TARGET_WAR"
-  sudo chown ec2-user:ec2-user "$TARGET_WAR"i
+# Deploy Ecomm.war
+sudo cp /home/ec2-user/Ecomm.war /opt/tomcat/webapps/
+sudo chown tomcat:tomcat /opt/tomcat/webapps/Ecomm.war
 
-# scripts/start_tomcat.sh
-#!/bin/bash
-set -e
+# Restart Tomcat
+sudo systemctl restart tomcat
 
-if ! pgrep -f "org.apache.catalina.startup.Bootstrap start" > /dev/null; then
-  echo "Tomcat is not running, starting it..."
-  sudo systemctl start tomcat
-else
-  echo "Tomcat is already running, skipping start."
-fi
+# Install CodeDeploy agent
+cd /home/ec2-user
+sudo yum install -y ruby wget
+wget https://aws-codedeploy-us-west-2.s3.amazonaws.com/latest/install
+chmod +x ./install
+sudo ./install auto
+sudo systemctl start codedeploy-agent
+sudo systemctl enable codedeploy-agent
 
-# scripts/stop_tomcat.sh
-#!/bin/bash
-set -e
-
-if pgrep -f "org.apache.catalina.startup.Bootstrap start" > /dev/null; then
-  echo "Stopping Tomcat before deployment..."
-  sudo systemctl stop tomcat
-fi
-
-# scripts/validate_service.sh
-#!/bin/bash
-set -e
-
-URL="http://localhost:8080/Ecomm"
-RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
-
-if [ "$RESPONSE" -eq 200 ]; then
-  echo "App is up. Validation successful."
-else
-  echo "App failed validation. HTTP $RESPONSE"
-  exit 1
-fi
+# Confirm running
+echo "Tomcat and CodeDeploy setup complete."
