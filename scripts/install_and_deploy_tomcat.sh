@@ -2,8 +2,7 @@
 set -e
 set -x
 
-# ========= Install AWS CodeDeploy Agent =========
-echo "Installing AWS CodeDeploy Agent..."
+echo "======== Installing AWS CodeDeploy Agent ========="
 sudo yum update -y
 sudo yum install -y ruby wget
 
@@ -14,32 +13,32 @@ sudo ./install auto
 
 sudo systemctl start codedeploy-agent
 sudo systemctl enable codedeploy-agent
+sudo systemctl status codedeploy-agent
 
-# ========= Install Java 11 =========
-echo "Installing Java 11 if not already present..."
+echo "======== Installing Java 11 if not present ========="
 if ! java -version &>/dev/null; then
   sudo yum install -y java-11-amazon-corretto
 else
-  echo "Java already installed."
+  echo "✅ Java already installed"
 fi
 
-# ========= Install Tomcat =========
+echo "======== Installing Tomcat 9 ========="
 TOMCAT_VERSION="9.0.86"
 TOMCAT_DIR="/opt/tomcat"
-JAVA_HOME_PATH="/usr/lib/jvm/java-11-amazon-corretto"
 
 cd /opt
 if [ ! -d "$TOMCAT_DIR" ]; then
   sudo curl -O https://archive.apache.org/dist/tomcat/tomcat-9/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz
   sudo tar -xzf apache-tomcat-${TOMCAT_VERSION}.tar.gz
   sudo mv apache-tomcat-${TOMCAT_VERSION} "$TOMCAT_DIR"
+  sudo chown -R ec2-user:ec2-user "$TOMCAT_DIR"
+  sudo chmod +x "$TOMCAT_DIR"/bin/*.sh
 fi
 
-sudo chown -R ec2-user:ec2-user "$TOMCAT_DIR"
-sudo chmod +x "$TOMCAT_DIR"/bin/*.sh
-
-# ========= Create systemd service =========
+echo "======== Creating systemd service for Tomcat ========="
+JAVA_HOME_PATH="/usr/lib/jvm/java-11-amazon-corretto"
 TOMCAT_SERVICE="/etc/systemd/system/tomcat.service"
+
 sudo tee "$TOMCAT_SERVICE" > /dev/null <<EOF
 [Unit]
 Description=Apache Tomcat Web Application Container
@@ -62,7 +61,35 @@ RestartSec=10
 WantedBy=multi-user.target
 EOF
 
-# ========= Configure tomcat-users.xml =========
+echo "======== Verifying JAVA_HOME ========="
+if [ ! -d "$JAVA_HOME_PATH" ]; then
+  echo "❌ JAVA_HOME path not found: $JAVA_HOME_PATH"
+  exit 1
+fi
+
+echo "======== Stopping any running Tomcat process ========="
+sudo systemctl stop tomcat || true
+sudo pkill -f 'org.apache.catalina.startup.Bootstrap' || true
+
+echo "======== Deploying WAR file ========="
+WAR_NAME="Ecomm.war"
+SOURCE_WAR="/home/ec2-user/${WAR_NAME}"
+TARGET_WAR="${TOMCAT_DIR}/webapps/${WAR_NAME}"
+APP_DIR="${TOMCAT_DIR}/webapps/Ecomm"
+
+# Clean previous app
+sudo rm -rf "$APP_DIR"
+sudo rm -f "$TARGET_WAR"
+
+if [ -f "$SOURCE_WAR" ]; then
+  sudo cp "$SOURCE_WAR" "$TARGET_WAR"
+  echo "✅ WAR file deployed to Tomcat"
+else
+  echo "❌ WAR file not found at $SOURCE_WAR"
+  exit 1
+fi
+
+echo "======== Configuring tomcat-users.xml with manager credentials ========="
 TOMCAT_USER_CONF="$TOMCAT_DIR/conf/tomcat-users.xml"
 sudo tee "$TOMCAT_USER_CONF" > /dev/null <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -73,42 +100,23 @@ sudo tee "$TOMCAT_USER_CONF" > /dev/null <<EOF
 </tomcat-users>
 EOF
 
-# ========= Allow remote access to Manager and Host-Manager =========
+echo "======== Allowing remote access to manager and host-manager ========="
 MANAGER_CONTEXT="$TOMCAT_DIR/webapps/manager/META-INF/context.xml"
 HOSTMANAGER_CONTEXT="$TOMCAT_DIR/webapps/host-manager/META-INF/context.xml"
 
 sudo tee "$MANAGER_CONTEXT" > /dev/null <<EOF
 <Context antiResourceLocking="false" privileged="true" >
-  <!-- Remote access allowed -->
+  <!-- Remote access allowed for manager app -->
 </Context>
 EOF
 
 sudo tee "$HOSTMANAGER_CONTEXT" > /dev/null <<EOF
 <Context antiResourceLocking="false" privileged="true" >
-  <!-- Remote access allowed -->
+  <!-- Remote access allowed for host-manager app -->
 </Context>
 EOF
 
-# ========= Deploy WAR =========
-WAR_NAME="Ecomm.war"
-SOURCE_WAR="/home/ec2-user/${WAR_NAME}"
-TARGET_WAR="${TOMCAT_DIR}/webapps/${WAR_NAME}"
-APP_DIR="${TOMCAT_DIR}/webapps/Ecomm"
-
-sudo systemctl stop tomcat || true
-sudo pkill -f 'org.apache.catalina.startup.Bootstrap' || true
-
-sudo rm -rf "$APP_DIR"
-sudo rm -f "$TARGET_WAR"
-
-if [ -f "$SOURCE_WAR" ]; then
-  sudo cp "$SOURCE_WAR" "$TARGET_WAR"
-else
-  echo "❌ WAR file not found at $SOURCE_WAR"
-  exit 1
-fi
-
-# ========= Start Tomcat =========
+echo "======== Starting Tomcat via systemd ========="
 sudo systemctl daemon-reload
 sudo systemctl enable tomcat
 sudo systemctl restart tomcat
@@ -120,7 +128,6 @@ else
   exit 1
 fi
 
-# ========= Completion =========
-echo "======== ✅ Setup Complete ========="
-echo "➡️ Access Tomcat Manager: http://<your-ec2-ip>:8080/manager/html"
-echo "🔐 Username: admin | Password: admin"
+echo "======== ✅ All Setup Complete ========="
+echo "➡️ Access Manager App: http://<your-ec2-ip>:8080/manager/html"
+echo "➡️ Login: admin / admin"
