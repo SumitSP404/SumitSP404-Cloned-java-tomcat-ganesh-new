@@ -6,25 +6,19 @@ TOMCAT_USER_CONF="$TOMCAT_DIR/conf/tomcat-users.xml"
 MANAGER_CONTEXT="$TOMCAT_DIR/webapps/manager/META-INF/context.xml"
 HOSTMANAGER_CONTEXT="$TOMCAT_DIR/webapps/host-manager/META-INF/context.xml"
 
-# Function to install Tomcat if not found
-install_tomcat() {
-  echo "⚙️ Tomcat not found. Installing Tomcat 9..."
+# Install Java, Tomcat, and unzip if not present
+if [ ! -d "$TOMCAT_DIR" ]; then
+  echo "⚙️ Installing Tomcat 9..."
   sudo yum update -y
-  sudo yum install -y java-11-amazon-corretto wget unzip
+  sudo yum install -y java-11-openjdk wget unzip
   cd /opt
   sudo wget https://downloads.apache.org/tomcat/tomcat-9/v9.0.86/bin/apache-tomcat-9.0.86.tar.gz
   sudo tar -xvzf apache-tomcat-9.0.86.tar.gz
   sudo mv apache-tomcat-9.0.86 tomcat
   sudo chmod -R 755 $TOMCAT_DIR
-  sudo sh $TOMCAT_DIR/bin/startup.sh
-}
-
-# Install Tomcat if missing
-if [ ! -d "$TOMCAT_DIR" ]; then
-  install_tomcat
 fi
 
-# Step 1: Add manager user to tomcat-users.xml
+# Add manager user
 echo "🔧 Updating tomcat-users.xml..."
 sudo tee "$TOMCAT_USER_CONF" > /dev/null <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -38,37 +32,40 @@ sudo tee "$TOMCAT_USER_CONF" > /dev/null <<EOF
 </tomcat-users>
 EOF
 
-# Step 2: Allow remote access to manager and host-manager
-echo "🔧 Updating context.xml for remote access..."
+# Allow remote access to manager and host-manager
+echo "🔧 Enabling remote access for manager and host-manager..."
 sudo tee "$MANAGER_CONTEXT" > /dev/null <<EOF
 <Context antiResourceLocking="false" privileged="true" >
-  <!-- Remote access allowed for manager app -->
+  <!-- Remote access allowed -->
 </Context>
 EOF
 
 sudo tee "$HOSTMANAGER_CONTEXT" > /dev/null <<EOF
 <Context antiResourceLocking="false" privileged="true" >
-  <!-- Remote access allowed for host-manager app -->
+  <!-- Remote access allowed -->
 </Context>
 EOF
 
-# Step 3: Restart Tomcat
-echo "♻️ Restarting Tomcat..."
-if command -v systemctl >/dev/null 2>&1; then
-  sudo systemctl restart tomcat || {
-    echo "Tomcat service not found. Restarting using shell scripts..."
-    sudo $TOMCAT_DIR/bin/shutdown.sh
-    sleep 3
-    sudo $TOMCAT_DIR/bin/startup.sh
-  }
-else
-  sudo $TOMCAT_DIR/bin/shutdown.sh
-  sleep 3
-  sudo $TOMCAT_DIR/bin/startup.sh
-fi
+# Install and start CodeDeploy Agent
+echo "🚀 Installing AWS CodeDeploy Agent..."
+cd /home/ec2-user
+sudo yum install -y ruby wget
+wget https://aws-codedeploy-us-west-2.s3.amazonaws.com/latest/install
+chmod +x ./install
+sudo ./install auto
+sudo systemctl start codedeploy-agent
+sudo systemctl enable codedeploy-agent
 
-# Step 4: Show result
+# Restart Tomcat
+echo "♻️ Restarting Tomcat..."
+if pgrep -f tomcat > /dev/null; then
+  sudo $TOMCAT_DIR/bin/shutdown.sh
+  sleep 5
+fi
+sudo $TOMCAT_DIR/bin/startup.sh
+
+# Display status
 echo "✅ Tomcat setup complete!"
-echo "➡️ Manager:       http://<your-public-ip>:8080/manager/html"
-echo "➡️ Host Manager:  http://<your-public-ip>:8080/host-manager/html"
-echo "🔐 Username: admin  | Password: admin"
+echo "➡️ Tomcat Manager: http://<your-public-ip>:8080/manager/html"
+echo "➡️ Host Manager:   http://<your-public-ip>:8080/host-manager/html"
+echo "🔐 Username: admin | Password: admin"
