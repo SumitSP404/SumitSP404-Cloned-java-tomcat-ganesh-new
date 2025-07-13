@@ -104,7 +104,7 @@ fi
 echo "======== Enabling and Starting Tomcat service ========="
 sudo systemctl daemon-reload
 sudo systemctl enable tomcat
-sudo systemctl restart tomcat
+#sudo systemctl restart tomcat
 
 echo "======== ✅ Deployment Complete ========="
 echo "🌐 Access Tomcat at: http://<EC2_PUBLIC_IP>:8080"
