@@ -60,7 +60,7 @@ sudo tee /opt/tomcat/conf/tomcat-users.xml > /dev/null <<EOF
 <tomcat-users>
   <role rolename="manager-gui"/>
   <role rolename="admin-gui"/>
-  <user username="admin" password="admin123" roles="manager-gui,admin-gui"/>
+  <user username="admin" password="admin" roles="manager-gui,admin-gui"/>
 </tomcat-users>
 EOF
 
