@@ -1,50 +1,47 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-  <modelVersion>4.0.0</modelVersion>
-
-  <groupId>MyEcommerceGroup</groupId>
-  <artifactId>MyEcommerceArtifact</artifactId>
-  <version>1.0-SNAPSHOT</version>
-  <packaging>war</packaging>
-
-  <name>Simple Ecommerce Maven Webapp</name>
-
-  <properties>
-    <maven.compiler.source>11</maven.compiler.source>
-    <maven.compiler.target>11</maven.compiler.target>
-  </properties>
-
-  <dependencies>
-    <!-- Unit testing -->
-    <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <version>3.8.1</version>
-      <scope>test</scope>
-    </dependency>
-
-    <!-- Servlet API -->
-    <dependency>
-      <groupId>javax.servlet</groupId>
-      <artifactId>javax.servlet-api</artifactId>
-      <version>4.0.1</version>
-      <scope>provided</scope>
-    </dependency>
-  </dependencies>
-
-  <build>
-    <finalName>Ecomm</finalName>
-    <plugins>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.8.1</version>
-        <configuration>
-          <source>11</source>
-          <target>11</target>
-        </configuration>
-      </plugin>
-    </plugins>
-  </build>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>MyEcommerceGroup</groupId>
+	<artifactId>MyEcommerceArtifact</artifactId>
+	<packaging>war</packaging>
+	<version>1.0-SNAPSHOT</version>
+	<name>Simple Ecomerce Maven Webapp</name>
+	<url>http://maven.apache.org</url>
+	<distributionManagement>
+    <repository>
+        <id>central</id>
+        <name>ip-172-31-10-127.ap-northeast-3.compute.internal-releases</name>
+        <url>http://3.110.223.194:8081/artifactory/etoe</url>
+    </repository>
+    <snapshotRepository>
+        <id>snapshots</id>
+        <name>ip-172-31-10-127.ap-northeast-3.compute.internal-snapshots</name>
+        <url>http://13.201.184.143:8081/artifactory/etoe</url>
+    </snapshotRepository>
+</distributionManagement>
+	<dependencies>
+		<dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+			<version>3.8.1</version>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+	<build>
+		<finalName>Ecomm1</finalName>
+		<plugins>
+			<plugin> 
+				<groupId>org.apache.tomcat.maven</groupId> 
+				<artifactId>tomcat7-maven-plugin</artifactId> 
+				<version>2.2</version> 
+				<configuration> 
+					 <url>http://15.152.42.208:8080/manager/text</url>
+					<server>apache-tomcat</server> 
+					<username>admin</username>
+					<password>admin</password>
+					<path>/Ecomm1</path> 
+				</configuration> 
+			</plugin>
+		</plugins>
+	</build>
 </project>
