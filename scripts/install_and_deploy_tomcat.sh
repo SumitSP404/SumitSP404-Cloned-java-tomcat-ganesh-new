@@ -34,8 +34,8 @@ if [ ! -d "$TOMCAT_DIR" ]; then
   sudo mkdir -p /opt/
   sudo tar -xzf apache-tomcat-${TOMCAT_VERSION}.tar.gz -C /opt/
   sudo mv /opt/apache-tomcat-${TOMCAT_VERSION} $TOMCAT_DIR
-  sudo chown -R $TOMCAT_USER:$TOMCAT_USER $TOMCAT_DIR
   sudo chmod +x $TOMCAT_DIR/bin/*.sh
+  sudo chown -R $TOMCAT_USER:$TOMCAT_USER $TOMCAT_DIR
 else
   echo "✅ Tomcat already installed. Skipping."
 fi
@@ -67,6 +67,7 @@ Type=forking
 User=$TOMCAT_USER
 Group=$TOMCAT_USER
 Environment=JAVA_HOME=/usr/lib/jvm/java-11-amazon-corretto
+Environment=CATALINA_PID=$TOMCAT_DIR/temp/tomcat.pid
 Environment=CATALINA_HOME=$TOMCAT_DIR
 Environment=CATALINA_BASE=$TOMCAT_DIR
 ExecStart=$TOMCAT_DIR/bin/startup.sh
