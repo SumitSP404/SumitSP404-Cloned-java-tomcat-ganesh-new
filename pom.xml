@@ -28,7 +28,7 @@
 		</dependency>
 	</dependencies>
 	<build>
-		<finalName>Ecomm1</finalName>
+		<finalName>Ecomm</finalName>
 		<plugins>
 			<plugin> 
 				<groupId>org.apache.tomcat.maven</groupId> 
