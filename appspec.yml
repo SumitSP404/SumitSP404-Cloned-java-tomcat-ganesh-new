@@ -3,7 +3,7 @@ os: linux
 
 files:
 
-source: target/Ecomm.war
+source: tomcat-bucket-new/target/Ecomm.war
 destination: /home/ec2-user/
 
 hooks:
