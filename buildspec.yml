@@ -1,5 +1,10 @@
 version: 0.2
 
+env:
+  variables:
+    WAR_NAME: Ecomm.war
+    S3_BUCKET: tomcat-bucket-new   # 🔁 Your S3 bucket name
+
 phases:
   install:
     runtime-versions:
@@ -17,16 +22,17 @@ phases:
     commands:
       - echo Building the Java WAR package...
       - mvn clean package -DskipTests
+      - echo Build completed. Verifying target directory contents...
+      - ls -l target/
 
   post_build:
     commands:
-      - echo Build completed. Preparing artifacts...
-      - ls -l target/
-      - ls -l scripts/
+      - echo Uploading WAR file to S3 under target/ folder...
+      - aws s3 cp target/${WAR_NAME} s3://${S3_BUCKET}/target/${WAR_NAME}
+      - echo ✅ WAR uploaded to s3://${S3_BUCKET}/target/${WAR_NAME}
 
 artifacts:
   files:
-    - target/*.war
+    - target/${WAR_NAME}
     - appspec.yml
     - scripts/install_and_deploy_tomcat.sh
-  
